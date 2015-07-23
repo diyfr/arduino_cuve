@@ -84,13 +84,6 @@ static const byte Digits[][4][18] =
   }
 };
 
-static const byte SecondIndicator[4] =
-{
-  0x00, 0x07, 0x70, 0x00
-};
-
-
-
 int boucle=0;
 
  
