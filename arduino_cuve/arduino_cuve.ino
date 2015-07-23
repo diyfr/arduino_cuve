@@ -518,11 +518,11 @@ void loop()
   DisplayValue(distance_cm,percent);
 
   if (boucle==30||boucle==0){
+    // Envoi message toutes les 30 boucles
     sendRF();
     boucle=0;
     // LED ??
   }  
-  delay(1000);
+  delay(60000);
   boucle++;
-  //delay(30000);
 }
