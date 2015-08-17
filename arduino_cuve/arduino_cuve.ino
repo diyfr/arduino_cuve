@@ -4,11 +4,13 @@ const byte TX_PIN = 9;
 // SR04
 const byte SR04_TRIG=12;
 const byte SR04_ECHO=11;
-long lecture_echo; 
-double distance_cm;
-int percent=0;
-const double ref_h=160;
+long lecture_echo; // echo transmis par le SR04
+double distance_cm;// distance mesurée par le capteur moins le vide nécessaire (h_vide)
+int percent=0;//pourcentage d'occupation de fioul
+const double ref_h=160; // ht maxi de liquide = long entre le niveau mini(fond de fioul généralement plein de sédiment) et avant la ht_vide 
+int h_vide=35; // Vide nécessaire entre le capteur et le niveau maxi
 
+#define LED_OUT 10
 // LCD
 #define PIN_SCE   7
 #define PIN_RESET 6
@@ -20,6 +22,7 @@ const double ref_h=160;
 #define LCD_D     HIGH
 #define LCD_X     84
 #define LCD_Y     48
+
 static const byte Digits[][4][18] = 
 {
  {
@@ -268,7 +271,7 @@ void setBatteryLevel(byte *data, byte level)
  * \param    data       Oregon message
  * \param    temp       the temperature
  */
-void setTemperature(byte *data, float temp) 
+void setDistance(byte *data, float temp) 
 {
   // Set temperature sign
   if(temp < 0)
@@ -301,7 +304,7 @@ void setTemperature(byte *data, float temp)
  * \param    data       Oregon message
  * \param    hum        the humidity
  */
-void setHumidity(byte* data, byte hum)
+void setPercent(byte* data, byte hum)
 {
     data[7] = (hum/10);
     data[6] |= (hum - data[7]*10) << 4;
@@ -347,8 +350,12 @@ void readSR04(){
   delay(20); 
   digitalWrite(SR04_TRIG, LOW); 
   lecture_echo = pulseIn(SR04_ECHO, HIGH); 
-  distance_cm = lecture_echo / 58.0; 
-  percent = (distance_cm/ref_h)*100;
+  distance_cm = lecture_echo / 58.0;
+  distance_cm =distance_cm -h_vide;
+  if (distance_cm < 0){
+    distance_cm=0;
+  } 
+  percent = (1-(distance_cm/ref_h))*100;
   Serial.print("d - Distance cm : "); 
   Serial.println(distance_cm); 
 }
@@ -457,11 +464,11 @@ void initLCD(){
 }
 
 void sendRF(){
-    // Get Temperature, humidity and battery level from sensors
-  // (ie: 1wire DS18B20 for température, ...)
+  digitalWrite(LED_OUT, HIGH);
+
   setBatteryLevel(OregonMessageBuffer, 1); // 0 : low, 1 : high
-  setTemperature(OregonMessageBuffer, distance_cm);
-  setHumidity(OregonMessageBuffer, percent);
+  setDistance(OregonMessageBuffer, distance_cm);
+  setPercent(OregonMessageBuffer, percent);
 
  
   // Calculate the checksum
@@ -483,7 +490,8 @@ void sendRF(){
  
   // Wait for 30 seconds before send a new message 
   SEND_LOW();
-
+  delay(500); 
+  digitalWrite(LED_OUT, LOW);
 }
 
 
@@ -498,6 +506,9 @@ void setup()
   digitalWrite(SR04_TRIG, LOW); 
   pinMode(SR04_ECHO, INPUT); 
 
+  pinMode(LED_OUT, OUTPUT);
+  digitalWrite(LED_OUT, HIGH);
+
   // INIT Console
   Serial.begin(115200);
   Serial.println("\n[Oregon V2.1 encoder]");
@@ -510,6 +521,7 @@ void setup()
   setType(OregonMessageBuffer, ID);
   setChannel(OregonMessageBuffer, 0x20);
   setId(OregonMessageBuffer, 0xBB);
+ digitalWrite(LED_OUT, LOW);
 }
  
 void loop()
@@ -521,7 +533,6 @@ void loop()
     // Envoi message toutes les 30 boucles
     sendRF();
     boucle=0;
-    // LED ??
   }  
   delay(60000);
   boucle++;
